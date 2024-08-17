@@ -1,0 +1,3 @@
+This repo is still a work in progress. Feel free to reach out if you have questions!
+
+This project looks to apply some machine learning techniques to demographic inference in population genomics. In a nutshell, I use simulated site-frequency-spectra (SFS) from msprime under different demographic models to train neural networks in PyTorch (in the Two Epoch model script) and boosted regression trees (in the Boosted regression tree notebook). In general, both approaches are able to infer parameter values well under a two-epoch model. At the moment, neural networks struggle to learn to infer parameters under a three-epoch model, while boosted regression trees do a better 
