@@ -145,7 +145,8 @@ class TwoEpochModel():
         ancestry_reps = msprime.sim_ancestry(
                 samples=self.sample_size,
                 demography=demography,
-                num_replicates=num_replicates)
+                num_replicates=num_replicates,
+                squence_length = 100)
         for ts in ancestry_reps:
             mutated_ts = msprime.sim_mutations(ts, rate=1e-8)
             yield mutated_ts
