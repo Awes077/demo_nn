@@ -57,19 +57,15 @@ from typing import List
 @dataclass
 class TwoEpochModel():
     '''
-    Dataclass for hierarchical models of pop genomics and their parameters
     
     :param int seed: random seed
     :param int N_reps: number of replicates to simulate
     :param int sample_size: sample size of each simulation
-    :param int bottle_time: time of bottlenecks
-    :param float low_hier_val: lower bound of hierarchical parameter defining the proportion of taxa sharing a demographic history or parameter
-    :param float high_hier_val: upper bound of same hierarchical parameter
-    :param int num_taxa: number of taxa or independent populations to simulate
-    :param int n_loci: number of independent SNP loci to simulate
-    :param float Ne: effective population size
+    :param int t_change: time of change from modern population size to ancestral population size
+    :param int modern_size: modern effective population size
+    :param int ancestral_size: ancestral effective population size
+    :param int n_loci: number of independent loci to simulate - as of now, all loci are of length 100
     :param float theta: theta
-    :param int numsites: number of sites to simulate
     :param str prefix: prefix for the output files -- full path is encouraged
     :param List[float] training_fractions: fractions of the data to use for training, validation, and testing'''
 

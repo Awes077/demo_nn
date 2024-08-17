@@ -57,19 +57,17 @@ from typing import List
 @dataclass
 class PopGenTraining_h():
     '''
-    Dataclass for hierarchical models of pop genomics and their parameters
     
     :param int seed: random seed
     :param int N_reps: number of replicates to simulate
     :param int sample_size: sample size of each simulation
-    :param int bottle_time: time of bottlenecks
-    :param float low_hier_val: lower bound of hierarchical parameter defining the proportion of taxa sharing a demographic history or parameter
-    :param float high_hier_val: upper bound of same hierarchical parameter
-    :param int num_taxa: number of taxa or independent populations to simulate
+    :param int t_mod: time of change from modern population size to middle epoch population size
+    :param int t_mid: time of change from middle epoch population size to ancestral population size
+    :param int modern_size: modern effective population size
+    :param int mid_size: middle-epoch effective population size
+    :param int ancestral_size: ancestral effective population size
     :param int n_loci: number of independent SNP loci to simulate
-    :param float Ne: effective population size
     :param float theta: theta
-    :param int numsites: number of sites to simulate
     :param str prefix: prefix for the output files -- full path is encouraged
     :param List[float] training_fractions: fractions of the data to use for training, validation, and testing'''
 
