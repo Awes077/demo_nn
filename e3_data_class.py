@@ -4,14 +4,19 @@ from numpy.random import default_rng
 import pandas as pd
 import msprime
 import tskit
-import random
-import concurrent.futures
-import sys
 import torch
 import gpustat
 import os
 import matplotlib.pyplot as plt
 from torchmetrics.regression import R2Score
+from sklearn.multioutput import MultiOutputRegressor#, RegressorChain
+from sklearn.model_selection import train_test_split#, learning_curve, GridSearchCV
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from sklearn import ensemble
+import matplotlib.pyplot as plt
+import os
+import zipfile
 
 from dataclasses import dataclass
 
@@ -197,17 +202,151 @@ class PopGenTraining_h():
         else:
             params_df = pd.read_csv(file_name)
         line_out = np.zeros(self.N_reps)
-        #training_dict = {'t_mod':params_df['t_mod'], 't_mid':params_df['t_mid'], 'ancestral_size':params_df['ancestral_size'],
-        #                 'mid_size':params_df['mid_size'], 'modern_size':params_df['modern_size'], 'num_loci':params_df['num_loci']}
-        
         line_out=self.generate_SFS((params_df['t_mod'], params_df['t_mid'],
                                      params_df['ancestral_size'], params_df['mid_size'], params_df['modern_size'], params_df['num_loci'],
                                      params_df['loc_len']))
-
-        # if __name__ =='__main__':
-        #     with concurrent.futures.ProcessPoolExecutor(max_workers=self.n_cpu) as executor:
-        #         line_out = executor.map(self.generate_SFS, zip(training_dict['t_bottle'], training_dict['bottle_length'],
-        #                             training_dict['ancestral_size'], training_dict['bottle_size'], training_dict['modern_size']))
-        # line_df = pd.DataFrame(line_out)
-        # line_df.to_csv("Bad_bottle_count.csv")
         return(line_out)
+    
+    def listdir_nohidden(self, path):
+        for f in os.listdir(path):
+            if not f.startswith('.'):
+                yield f
+
+    def fit_boosted_reg_tree(self, sim_directory):
+        if('.zip' in sim_directory):
+            nd = sim_directory.split('.')[0]
+            with zipfile.ZipFile(sim_directory) as zipr:
+                sd = os.getcwd()
+                zipr.extractall(sd)
+            files = self.listdir_nohidden(nd)
+            sim_directory = nd +'/'
+        else:
+            files = self.listdir_nohidden(sim_directory)
+        print(sim_directory)
+        fix_length = [file.replace('len', 'len_') for file in files]
+        y_df = pd.DataFrame(columns=['mod_mid_change','mid_length','ancestral_size','mid_size','modern_size','num_loci','loci_len'])
+        all_splits = [file.split('_') for file in fix_length]
+        ind_dict = {'mod_mid_change':2,'mid_length':4,'ancestral_size':6,'mid_size':8,'modern_size':10,'num_loci':12,'loci_len':15}
+        for keys,values in ind_dict.items():
+            l = [line[values] for line in all_splits]
+            if values == 15:
+                l = [el.split('.')[0] for el in l]
+            y_df[keys] = l
+            y_df[keys] = y_df[keys].astype(float)
+        files2 = []
+        files = self.listdir_nohidden(sim_directory)
+        files2 = (sim_directory + file for file in files)
+        x_dat = []
+        for f in files2: x_dat.append(pd.read_csv(f)['SFS'])    
+        x_df = pd.DataFrame(x_dat)
+        x_df[40] = y_df['num_loci'].values
+        x_df[39] = y_df['loci_len'].values
+        x_df[40] = x_df[40]/60000
+        x_df[39] = x_df[39]/250
+        y_dat = y_df[['mod_mid_change','mid_length','ancestral_size','mid_size','modern_size']]
+        scale_vals = [2*250250,2*250250,250250,250250, 250250]
+        scaled_y = y_dat/scale_vals
+        x3_train, x3_test, y3_train, y3_test = train_test_split(x_df, scaled_y)
+        best_parms = {'learning_rate':0.05,
+              'max_depth': None,
+              'max_features':None,
+              'max_leaf_nodes': 10,
+              'min_samples_split':10,
+              'n_estimators':400}
+        bgb = MultiOutputRegressor(ensemble.GradientBoostingRegressor(**best_parms))
+        bgb.fit(x3_train, y3_train)
+        return [bgb, x3_train, y3_train, x3_test, y3_test]
+    
+    def plot_3e_results(self, fitted_model):
+        bgb, x3_train, y3_train, x3_test, y3_test = fitted_model
+        bgb_test_preds = bgb.predict(x3_test)
+        bgb_test_df = pd.DataFrame(bgb_test_preds)
+        bgb_train_preds = bgb.predict(x3_train)
+        bgb_train_df = pd.DataFrame(bgb_train_preds)
+
+        fig, axs = plt.subplots(2,5, figsize=(10,7))
+        fig.suptitle('Boosted Regression Outputs')
+        fig.tight_layout()
+        print('Training MSE t mod, t mid, ancestral size, mid size, modern size:', mean_squared_error(y3_train, bgb_train_preds, multioutput='raw_values'))
+
+        print( 'Test MSE t mod, t mid, ancestral size, mid size, modern size:', mean_squared_error(y3_test, bgb_test_preds, multioutput='raw_values'))
+        axs[0,0].scatter(
+            y3_test['ancestral_size']*250250,
+            bgb_test_df[2]*250250,
+            c=y3_test['modern_size'],
+            alpha=0.5
+        )
+        axs[0,0].set_title('Ancestral Population Size (Test)',size = 8)
+        axs[0,1].scatter(
+            y3_test['modern_size']*250250,
+            bgb_test_df[4]*250250,
+            c=y3_test['modern_size'],
+            alpha=0.5
+        )
+        axs[0,1].set_title('Modern Population Size (Test)',size = 8)
+        axs[0,2].scatter(
+            y3_test['mod_mid_change']*(2*250250),
+            bgb_test_df[0]*(2*250250),
+            c=y3_test['modern_size'],
+            alpha=0.5
+        )
+        axs[0,2].set_title('Time of Modern Change (Test)',size = 8)        
+
+        axs[0,3].scatter(
+            y3_test['mid_length']*(2*250250),
+            bgb_test_df[1]*(2*250250),
+            c=y3_test['modern_size'],
+            alpha=0.5
+        )
+        axs[0,3].set_title('Time of Mid Change (Test)',size = 8)  
+
+        axs[0,4].scatter(
+            y3_test['mid_size']*250250,
+            bgb_test_df[3]*250250,
+            c=y3_test['modern_size'],
+            alpha=0.5
+        )       
+        axs[0,4].set_title('Mid Population Size (Test)',size = 8)  
+
+
+        axs[1,0].scatter(
+            y3_train['ancestral_size']*250250,
+            bgb_train_df[2]*250250,
+            c=y3_train['modern_size'],
+            alpha=0.5
+        )
+        axs[1,0].set_title('Ancestral Population Size (Train)',size = 8)
+        axs[1,1].scatter(
+            y3_train['modern_size']*250250,
+            bgb_train_df[4]*250250,
+            c=y3_train['modern_size'],
+            alpha=0.5  
+        )
+        axs[1,1].set_title('Modern Population Size (Train)',size = 8)
+        axs[1,2].scatter(
+            y3_train['mod_mid_change']*(2*250250),
+            bgb_train_df[0]*(2*250250),
+            c=y3_train['modern_size'],
+            alpha=0.5
+        )
+        axs[1,2].set_title('Time of Modern Change (Train)',size = 8)        
+
+        axs[1,3].scatter(
+            y3_train['mid_length']*(2*250250),
+            bgb_train_df[1]*(2*250250),
+            c=y3_train['modern_size'],
+            alpha=0.5
+        )
+        axs[1,3].set_title('Time of Mid Change (Train)',size = 8)  
+
+        axs[1,4].scatter(
+            y3_train['mid_size']*250250,
+            bgb_train_df[3]*250250,
+            c=y3_train['modern_size'],
+            alpha=0.5
+        )
+        axs[1,4].set_title('Mid Population Size (Train)',size = 8) 
+
+
+
+
