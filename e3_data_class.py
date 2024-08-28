@@ -141,7 +141,6 @@ class PopGenTraining_h():
         demography.add_population(initial_size=modern_size)
         demography.add_population_parameters_change(time = t_mod, population=0, initial_size=mid_size)
         demography.add_population_parameters_change(time = t_mod+t_mid, population = 0, initial_size=ancestral_size)
-        #demography.add_instantaneous_bottleneck(time=bottle_time, strength=20000, population=0)
         ancestry_reps = msprime.sim_ancestry(
                 samples=self.sample_size,
                 demography=demography,
@@ -222,7 +221,6 @@ class PopGenTraining_h():
             sim_directory = nd +'/'
         else:
             files = self.listdir_nohidden(sim_directory)
-        print(sim_directory)
         fix_length = [file.replace('len', 'len_') for file in files]
         y_df = pd.DataFrame(columns=['mod_mid_change','mid_length','ancestral_size','mid_size','modern_size','num_loci','loci_len'])
         all_splits = [file.split('_') for file in fix_length]
@@ -346,6 +344,22 @@ class PopGenTraining_h():
             alpha=0.5
         )
         axs[1,4].set_title('Mid Population Size (Train)',size = 8) 
+
+    def plot_feat_importances(self, fitted_model):
+        fig, axs = plt.subplots(5,1, figsize=(10,7))
+        fig.suptitle("Importance of each bin in the folded SFS for each estimated parameter")
+        fig.tight_layout()
+        axs[0].bar(x = range(41),height=fitted_model[0].estimators_[0].feature_importances_)
+        axs[0].set_title('Modern to mid time change')
+        axs[1].bar(x = range(41),height=fitted_model[0].estimators_[1].feature_importances_)
+        axs[1].set_title('Mid to ancestral time change')
+        axs[2].bar(x = range(41),height=fitted_model[0].estimators_[2].feature_importances_)
+        axs[2].set_title('Ancestral pop size')
+        axs[3].bar(x = range(41),height=fitted_model[0].estimators_[3].feature_importances_)
+        axs[3].set_title('Middle epoch pop size')
+        axs[4].bar(x = range(41),height=fitted_model[0].estimators_[4].feature_importances_)
+        axs[4].set_title('Modern pop size')
+
 
 
 
