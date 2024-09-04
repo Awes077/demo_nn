@@ -215,8 +215,7 @@ class PopGenTraining_h():
             if not f.startswith('.'):
                 yield f
 
-
-    def fit_boosted_reg_tree(self, sim_directory):
+    def read_data(self, sim_directory):
         if('.zip' in sim_directory):
             nd = sim_directory.split('.')[0]
             with zipfile.ZipFile(sim_directory) as zipr:
@@ -247,6 +246,10 @@ class PopGenTraining_h():
         x_df[40] = x_df[40]/60000
         x_df[39] = x_df[39]/250
         y_dat = y_df[['mod_mid_change','mid_length','ancestral_size','mid_size','modern_size']]
+        return([x_df, y_dat])
+
+    def fit_boosted_reg_tree(self, sim_directory):
+       
         scale_vals = [2*250250,2*250250,250250,250250, 250250]
         scaled_y = y_dat/scale_vals
         x3_train, x3_test, y3_train, y3_test = train_test_split(x_df, scaled_y)

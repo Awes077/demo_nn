@@ -56,10 +56,17 @@ class PopulationDataset(Dataset):
     def __getitem__(self, index):
         # get positions and convert into a tensor in torch
         dats = pd.read_csv(self.df.iloc[index].n20_path)
-        SFS = torch.tensor(dats.iloc[:,1].values).to(torch.float64)
         num_loci = np.divide(self.df['num_loci'].iloc[index],60000)
+        #dats['SFS'].iloc[40] = num_loci
+        SFS = torch.tensor(dats.iloc[:,1].values).to(torch.float64)
+        SFS = SFS[:22]
         SFS[-1] = num_loci
         #print(SFS)
+        #print(SFS.shape)
+        #SFM = SFS!=0
+        #SFS_mask = SFM.nonzero()
+        #SFS = torch.reshape(SFS, (-1,))
+        #print(SFS.shape)
 
         #same for Ne, scaled by the Ne scaling factor
         #okay probably need to think here about the Ne and how its calculated but go on - once again just turning into a tensor within torch
@@ -165,7 +172,7 @@ output_size = 5
 #okay need to figure out how to reformat this part, in particular the element here about inut size isn't going to be numsites for me, it's going to be the length of the SFSx3
 #yeah? Something like that? I guess if I just turn it into a vector it should be able to manage but I'm curious what it looks like once I've read it in.
 
-aSFS_len = ((test_pop.sample_size*2)+1)
+aSFS_len = ((test_pop.sample_size)+2)
 
 model = MultiOutputRegression(aSFS_len, 40, 2, output_size).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
@@ -175,7 +182,7 @@ clip_value = 25
 #20 training epochs
 R2s = R2Score(num_outputs=5,multioutput="raw_values")
 
-for epoch in range(15):
+for epoch in range(20):
     for x_batch, y_batch in training_loader:
         # 1. Generate predictions
         y_batch = torch.div(y_batch, scale_tens)
@@ -204,10 +211,7 @@ for epoch in range(15):
         print(f'Epoch {epoch} Loss {loss.item():.4f}')
         print(f'Epoch {epoch} Loss {lossful}')
         print(f'Current R2 vector is: {R2s(y_batch, pred)}')
-    if epoch == 15:
-        print(f'Final loss is: {loss.item():.4f}')
-        print(f'Epoch {epoch} Loss {lossfull.item():.4f}')
-        print(f'Final R-squared vector is: {R2s(y_batch, pred)}')
+
 
 
 
@@ -244,10 +248,10 @@ for x_batch, y_batch in training_dfs[0]:
     # ax_train_bott_size.scatter(250250*y_na[3], 250250*pred_na[3], color = 'black')
     # ax_train_mod_size.scatter(250250*y_na[4], 250250*pred_na[4], color = 'black')
 
-train_R2_scaled.to_csv('1h_scaled_3e_n20_results/1h_scaled_n20_3e_training_r_squared.csv')
-train_loss.to_csv('1h_scaled_3e_n20_results/1h_scaled_n20_3e_training_loss.csv')
-y_df.to_csv('1h_scaled_3e_n20_results/1h_scaled_n20_3e_training_y_data.csv')
-pred_df.to_csv('1h_scaled_3e_n20_results/1h_scaled_n20_3e_training_pred_data.csv')
+train_R2_scaled.to_csv('3e_n20_sparse_results/1h_scaled_n20_3e_training_r_squared.csv')
+train_loss.to_csv('3e_n20_sparse_results/1h_scaled_n20_3e_training_loss.csv')
+y_df.to_csv('3e_n20_sparse_results/1h_scaled_n20_3e_training_y_data.csv')
+pred_df.to_csv('3e_n20_sparse_results/1h_scaled_n20_3e_training_pred_data.csv')
 
 
 def R_sq(preds, y_dat):
@@ -264,7 +268,7 @@ Rs_nmid = R_sq(pred_df[3], y_df[3])
 Rs_nmod = R_sq(pred_df[4], y_df[4])
 
 R_sq_df = pd.DataFrame({'Rs_tmod':Rs_tmod, 'Rs_tmid':Rs_tmid, 'Rs_na': Rs_na, 'Rs_nmid':Rs_nmid, 'Rs_nmod':Rs_nmod}, index=[0])
-R_sq_df.to_csv('1h_scaled_3e_n20_results/Training_scaled_n100_3e_1h_Rsquared_stats.csv')
+R_sq_df.to_csv('3e_n20_sparse_results/Training_scaled_n100_3e_1h_Rsquared_stats.csv')
 
 
 plt.scatter(2*250250*y_df[0], 2*250250*pred_df[0], color='black')
@@ -273,7 +277,7 @@ time_one_one_train = np.linspace(100,1.5e6,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated modern-mid transition time")
 plt.ylabel("Predicted modern-mid transition time")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_train_t_mod.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_train_t_mod.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(2*250250*y_df[1], 2*250250*pred_df[1], color='black')
@@ -282,7 +286,7 @@ time_one_one_train = np.linspace(100,1.5e6,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated mid-ancestral transition time")
 plt.ylabel("Predicted mid-ancestral transition time")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_train_t_mid.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_train_t_mid.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[2], 250250*pred_df[2], color='black')
@@ -291,7 +295,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Ancestral Population Size")
 plt.ylabel("Predicted Ancestral Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_train_anc_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_train_anc_size.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[3], 250250*pred_df[3], color='black')
@@ -300,7 +304,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Mid-Epoch Population Size")
 plt.ylabel("Predicted Mid-Epoch Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_train_mid_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_train_mid_size.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[4], 250250*pred_df[4], color='black')
@@ -308,7 +312,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Modern Population Size")
 plt.ylabel("Predicted Modern Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_train_mod_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_train_mod_size.png", bbox_inches="tight")
 plt.close()
 
 
@@ -371,7 +375,7 @@ Rs_nmid = R_sq(pred_df[3], y_df[3])
 Rs_nmod = R_sq(pred_df[4], y_df[4])
 
 R_sq_df = pd.DataFrame({'Rs_tmod':Rs_tmod, 'Rs_tmid':Rs_tmid, 'Rs_na': Rs_na, 'Rs_nmid':Rs_nmid, 'Rs_nmod':Rs_nmod}, index=[0])
-R_sq_df.to_csv('1h_scaled_3e_n20_results/Validation_scaled_n100_3e_1h_Rsquared_stats.csv')
+R_sq_df.to_csv('3e_n20_sparse_results/Validation_scaled_n100_3e_1h_Rsquared_stats.csv')
 
 plt.scatter(2*250250*y_df[0], 2*250250*pred_df[0], color='black')
 time_one_one_train = np.linspace(100,1.5e6,100)
@@ -379,7 +383,7 @@ time_one_one_train = np.linspace(100,1.5e6,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated modern-mid transition time")
 plt.ylabel("Predicted modern-mid transition time")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_val_t_mod.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_val_t_mod.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(2*250250*y_df[1], 2*250250*pred_df[1], color='black')
@@ -388,7 +392,7 @@ time_one_one_train = np.linspace(100,1.5e6,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated mid-ancestral transition time")
 plt.ylabel("Predicted mid-ancestral transition time")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_val_t_mid.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_val_t_mid.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[2], 250250*pred_df[2], color='black')
@@ -397,7 +401,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Ancestral Population Size")
 plt.ylabel("Predicted Ancestral Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_val_anc_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_val_anc_size.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[3], 250250*pred_df[3], color='black')
@@ -406,7 +410,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Mid-Epoch Population Size")
 plt.ylabel("Predicted Mid-Epoch Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_val_mid_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_val_mid_size.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[4], 250250*pred_df[4], color='black')
@@ -414,7 +418,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Modern Population Size")
 plt.ylabel("Predicted Modern Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_val_mod_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_val_mod_size.png", bbox_inches="tight")
 plt.close()
 
 
@@ -472,7 +476,7 @@ Rs_nmid = R_sq(pred_df[3], y_df[3])
 Rs_nmod = R_sq(pred_df[4], y_df[4])
 
 R_sq_df = pd.DataFrame({'Rs_tmod':Rs_tmod, 'Rs_tmid':Rs_tmid, 'Rs_na': Rs_na, 'Rs_nmid':Rs_nmid, 'Rs_nmod':Rs_nmod}, index=[0])
-R_sq_df.to_csv('1h_scaled_3e_n20_results/Testingn_scaled_n100_3e_1h_Rsquared_stats.csv')
+R_sq_df.to_csv('3e_n20_sparse_results/Testingn_scaled_n100_3e_1h_Rsquared_stats.csv')
 
 
 plt.scatter(2*250250*y_df[0], 2*250250*pred_df[0], color='black')
@@ -481,7 +485,7 @@ time_one_one_train = np.linspace(100,1.5e6,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated modern-mid transition time")
 plt.ylabel("Predicted modern-mid transition time")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_test_t_mod.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_test_t_mod.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(2*250250*y_df[1], 2*250250*pred_df[1], color='black')
@@ -490,7 +494,7 @@ time_one_one_train = np.linspace(100,1.5e6,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated mid-ancestral transition time")
 plt.ylabel("Predicted mid-ancestral transition time")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_test_t_mid.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_test_t_mid.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[2], 250250*pred_df[2], color='black')
@@ -499,7 +503,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Ancestral Population Size")
 plt.ylabel("Predicted Ancestral Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_test_anc_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_test_anc_size.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[3], 250250*pred_df[3], color='black')
@@ -508,7 +512,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Mid-Epoch Population Size")
 plt.ylabel("Predicted Mid-Epoch Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_test_mid_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_test_mid_size.png", bbox_inches="tight")
 plt.close()
 
 plt.scatter(250250*y_df[4], 250250*pred_df[4], color='black')
@@ -516,7 +520,7 @@ time_one_one_train = np.linspace(100,500000,100)
 plt.plot(time_one_one_train, time_one_one_train)
 plt.xlabel("Simulated Modern Population Size")
 plt.ylabel("Predicted Modern Population Size")
-plt.savefig("1h_scaled_3e_n20_results/1h_scaled_marginal3e_test_mod_size.png", bbox_inches="tight")
+plt.savefig("3e_n20_sparse_results/1h_scaled_marginal3e_test_mod_size.png", bbox_inches="tight")
 plt.close()
 
 
